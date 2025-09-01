@@ -1,4 +1,4 @@
-import ClientSalesChart from "@/charts/ClientSalesChart"; // fix typo if needed
+import ClientSalesChart from "@/charts/ClientSalesChart";
 import { getClientSales } from "@/db/database";
 import { useNavigation } from "expo-router";
 import { useEffect, useState } from "react";

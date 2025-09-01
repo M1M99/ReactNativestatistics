@@ -1,7 +1,9 @@
+import { writeAndDownloadExcel } from "@/Helpers/DownloadExcel";
+import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
-import { SafeAreaView, View } from "react-native";
+import { PermissionsAndroid, Platform, SafeAreaView, TouchableOpacity, View } from "react-native";
 import { Button, DataTable, IconButton, Searchbar, Snackbar, TextInput } from "react-native-paper";
-import { deleteClient, getClients, initDatabase, insertClient, updateClient } from "../../db/database";
+import { deleteClient, getClients, getClientSales, initDatabase, insertClient, updateClient } from "../../db/database";
 
 
 const rowsPerPage = 3;
@@ -76,6 +78,32 @@ export default function ClientScreen({ navigation }: any) {
         })
     }
 
+    const handleExport = async () => {
+        const hasPermission = await requestStoragePermission();
+        if (!hasPermission) {
+            alert('Storage permission denied');
+            return;
+        }
+
+        const allSalesData: any[] = [];
+
+        for (const client of clients) {
+            await getClientSales(client.id, (sales) => {
+                sales.forEach((sale) => {
+                    allSalesData.push({
+                        client_name: client.name,
+                        client_email: client.email,
+                        client_phone: client.phone,
+                        sale_amount: sale.amount,
+                        sale_date: sale.date,
+                    });
+                });
+            });
+        }
+
+        await writeAndDownloadExcel(allSalesData);
+    };
+
     const handleSearch = (query: any) => {
         setSearch(query);
 
@@ -92,10 +120,29 @@ export default function ClientScreen({ navigation }: any) {
     const from = page * rowsPerPage;
     const to = Math.min((page + 1) * rowsPerPage, filteredClients.length);
 
-    // 2 * 3=> 6 from 
-    //9
 
-    //7 - 9 / 17
+    const requestStoragePermission = async () => {
+        if (Platform.OS !== 'android') return true;
+
+        try {
+            const granted = await PermissionsAndroid.request(
+                PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+                {
+                    title: 'Storage Permission',
+                    message: 'App needs access to your storage to save Excel files.',
+                    buttonNeutral: 'Ask Me Later',
+                    buttonNegative: 'Cancel',
+                    buttonPositive: 'OK',
+                }
+            );
+
+            return granted === PermissionsAndroid.RESULTS.GRANTED;
+        } catch (err) {
+            console.warn(err);
+            return false;
+        }
+    };
+
 
     return (
         <SafeAreaView style={{ flex: 1, padding: 16 }}>
@@ -152,7 +199,9 @@ export default function ClientScreen({ navigation }: any) {
                 />
 
             </DataTable>
-
+            <TouchableOpacity style={{ justifyContent: 'center', alignItems: 'center' }} onPress={() => { handleExport(), requestStoragePermission(), console.log('tesed') }}>
+                <Ionicons name="download" size={30}></Ionicons>
+            </TouchableOpacity>
             <Snackbar visible={snackbar.visible}
                 onDismiss={() => setSnackbar({ visible: false, message: '' })}
                 duration={3000}
